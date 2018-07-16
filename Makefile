@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g
 
-OBJ = list.o
+OBJ = list.o common.o
 OUT = list
 
 $(OUT): $(OBJ)
