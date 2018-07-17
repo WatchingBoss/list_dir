@@ -35,50 +35,131 @@ void list_print_file(char *path, char *files[], size_t num)
 //	snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
 }
 
-size_t min_max_len_str(char *files[], size_t num, char flag)
-{
-	if(flag == 1)
-	{
-		size_t min = 0;
-		for(int i = 0; i < num; ++i)
-			if(strlen(files[i]) < min)
-				min = strlen(files[i]);
-		return min;
-	}
-	else if(flag == 2)
-	{
-		size_t max = 0;
-		for(int i = 0; i < num; ++i)
-			if(max < strlen(files[i]))
-				max = strlen(files[i]);
-		return max;
-	}
-	else
-		printf("Invalid flag for min_max_len_str()\n");
-	return 0;
-}
-
 size_t sum_length (char *files[], size_t num)
 {
 	size_t sum = 0;
 	for(int i = 0; i < num; ++i)
-		sum += (strlen(files[i]) + 2);
+		sum += strlen(files[i]);
 
 	return sum;
 }
 
+/*
+ * bin books Desktop Documents Downloads examples.desktop extensions
+ * Music Pictures Public snap Templates Videos
+
+ * bin    Desktop    Downloads         extensions  Pictures  snap       Videos
+ * books  Documetns  examples.desktop  Music       Public    Templates  
+
+ * words = 13
+ * width of window = 105
+ * sum of length = 97 (without spaces)
+
+ * 97 / 13 = 7
+ * Words in line (colomns): 105 / (7 * 2) = 7
+ * Lines: 13 / 7 + 1 = 2
+
+ * number of words
+ * width of window
+ * sum length of all strings
+ */
+
+void check_line_filling(char *files[], size_t num, sTable *table, int width[])
+{
+	int len[table->lines];
+	memset(len, 0, sizeof len);
+
+	for(int line = 0; line < table->lines; ++line)
+		for(int w = 0, l = 0; l < table->cols; w += table->lines, ++l)
+		{
+			if(w >= num)
+				break;
+			len[line] += (strlen(files[w]) + 2);
+		}
+	for(int i = 0; i < table->lines; ++i)
+		if(table->win_width < len[i])
+		{
+			table->cols -= 1;
+			table->lines = num / table->cols;
+			check_line_filling(files, num, table, width);
+		}
+	if(table->lines == 1)
+		table->cols += 1;
+	if(table->cols * table->lines < num)
+		table->lines += 1;
+
+	greatest_len_in_col(files, num, table, width);
+}
+
+void greatest_len_in_col(char *files[], size_t num, sTable *table, int width[])
+{
+	for(int line = 0; line < table->lines; ++line)
+		for(int c = 0, w = line; c < table->cols && w < num; ++c, w += table->lines)
+		{
+			int temp_len = strlen(files[w]) + 2;
+			if(width[c] < temp_len)
+				width[c] = temp_len;
+		}
+	size_t sum_max = 0;
+	for(int i = 0; i < table->cols; ++i)
+		sum_max += width[i];
+	if(sum_max > table->win_width)
+	{
+		table->cols -= 1;
+		check_line_filling(files, num, table, width);
+	}
+}
+
 void simple_print_file(char *path, char *files[], size_t num)
 {
+	sTable table;
+	table.sum_len = sum_length(files, num);
+	table.win_width = get_terminal_width();
+	table.cols = table.win_width / ((table.sum_len / num) * 2);
+	table.lines = num / table.cols;
+
 	char full_path[S_PATH];
-	size_t sum_len = sum_length(files, num);
-	size_t win_width = get_terminal_width();
-	size_t min_str_len = min_max_len_str(files, num, 1);
-	size_t max_str_len = min_max_len_str(files, num, 2);
 	int value;
 
-	if(sum_len <= win_width)
-		;		// Just print all in one line
+	int width[table.cols + 1];
+	memset(width, 0, sizeof width);
 
+	check_line_filling(files, num, &table, width);
+
+	for(int line = 0; line < table.lines; ++line)
+	{
+		for(int j = line, c = 0; c < table.cols && j < num; j += table.lines, ++c)
+		{
+			memset(full_path, 0, S_PATH);
+			snprintf(full_path, S_PATH, "%s/%s", path, files[j]);
+			value = st_mode_value(full_path);
+
+			switch(value)
+			{
+				case IS_DIR:
+					printf(AC_B_BLUE"%s"AC_RESET, files[j]);
+					break;
+				case IS_EXE:
+					printf(AC_B_GREEN"%s"AC_RESET, files[j]);
+					break;
+				case IS_LNK:
+					printf(AC_B_CYAN"%s"AC_RESET, files[j]);
+					break;
+				case IS_PLAIN:
+					printf(AC_WHITE"%s"AC_RESET, files[j]);
+					break;
+			}
+			int temp_len = strlen(files[j]);
+			if(temp_len < width[c])
+				for(int i = width[c] - temp_len; i != 0; --i)
+					putchar(' ');
+			else
+				for(int i = 0; i < 2; ++i)
+					putchar(' ');
+		}
+		putchar('\n');
+	}
+/*
 	for(int i = 0; i < num; ++i)
 	{
 		memset(full_path, 0, S_PATH);
@@ -103,6 +184,7 @@ void simple_print_file(char *path, char *files[], size_t num)
 
 		printf("  ");
 	}
+*/
 }
 
 /* === START SORTING IN ALPHABETICAL ORDER === */
@@ -195,8 +277,6 @@ void directory_stream(char *dir)
 	for(int i = 0; i < number_files; ++i)
 		free(names[i]);
 	free(names);
-
-	printf("\n");
 }
 
 void read_input(int argc, char *argv[])
