@@ -19,17 +19,6 @@ int get_terminal_width()
 	return w.ws_col;
 }
 
-int find_middle(char *files[], size_t num)
-{
-	size_t middle = 0, sum = 0;
-	for(int i = 0; i < num; ++i)
-		sum += strlen(files[i]);
-
-	middle = sum / num;
-
-	return middle;
-}
-
 void current_directory(char *str, int size)
 {
 	char path[size];
@@ -47,12 +36,21 @@ int existing_directory(char *dir)
 	return 1;
 }
 
-int executable_file(char *file)
+int st_mode_value(char *file)
 {
 	struct stat sb;
-	if(!stat(file, &sb) && sb.st_mode & S_IXUSR)
-		return 1;
-	return 0;
+
+	if(lstat(file, &sb))          // not stat because currect S_ISLNK(m) usage
+		sys_error("stat error");
+
+	if(S_ISLNK(sb.st_mode))
+		return IS_LNK;
+	else if(S_ISDIR(sb.st_mode))
+		return IS_DIR;
+	else if(sb.st_mode & S_IXUSR)
+		return IS_EXE;
+	else
+		return IS_PLAIN;
 }
 
 void *xrealloc(void *ptr, size_t bytes)

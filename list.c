@@ -14,6 +14,7 @@
 #define AC_B_RED   "\x1b[91;1m"
 #define AC_B_GREEN "\x1b[92;1m"
 #define AC_B_BLUE  "\x1b[94;1m"
+#define AC_B_CYAN  "\x1b[96;1m"
 #define AC_WHITE   "\x1b[97;1m"
 #define AC_RESET   "\x1b[0m"
 /* END COLORS   */
@@ -34,23 +35,71 @@ void list_print_file(char *path, char *files[], size_t num)
 //	snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
 }
 
+size_t min_max_len_str(char *files[], size_t num, char flag)
+{
+	if(flag == 1)
+	{
+		size_t min = 0;
+		for(int i = 0; i < num; ++i)
+			if(strlen(files[i]) < min)
+				min = strlen(files[i]);
+		return min;
+	}
+	else if(flag == 2)
+	{
+		size_t max = 0;
+		for(int i = 0; i < num; ++i)
+			if(max < strlen(files[i]))
+				max = strlen(files[i]);
+		return max;
+	}
+	else
+		printf("Invalid flag for min_max_len_str()\n");
+	return 0;
+}
+
+size_t sum_length (char *files[], size_t num)
+{
+	size_t sum = 0;
+	for(int i = 0; i < num; ++i)
+		sum += (strlen(files[i]) + 2);
+
+	return sum;
+}
+
 void simple_print_file(char *path, char *files[], size_t num)
 {
 	char full_path[S_PATH];
-	size_t middle = find_middle(files, num);
+	size_t sum_len = sum_length(files, num);
 	size_t win_width = get_terminal_width();
+	size_t min_str_len = min_max_len_str(files, num, 1);
+	size_t max_str_len = min_max_len_str(files, num, 2);
+	int value;
+
+	if(sum_len <= win_width)
+		;		// Just print all in one line
 
 	for(int i = 0; i < num; ++i)
 	{
 		memset(full_path, 0, S_PATH);
 		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
+		value = st_mode_value(full_path);
 
-		if(existing_directory(full_path))
-			printf(AC_B_BLUE"%s"AC_RESET, files[i]);
-		else if(executable_file(full_path))
-			printf(AC_B_GREEN"%s"AC_RESET, files[i]);
-		else
-			printf(AC_WHITE"%s"AC_RESET, files[i]);
+		switch(value)
+		{
+			case IS_DIR:
+				printf(AC_B_BLUE"%s"AC_RESET, files[i]);
+				break;
+			case IS_EXE:
+				printf(AC_B_GREEN"%s"AC_RESET, files[i]);
+				break;
+			case IS_LNK:
+				printf(AC_B_CYAN"%s"AC_RESET, files[i]);
+				break;
+			case IS_PLAIN:
+				printf(AC_WHITE"%s"AC_RESET, files[i]);
+				break;
+		}
 
 		printf("  ");
 	}
@@ -141,6 +190,11 @@ void directory_stream(char *dir)
 
 	sort_alphabetically(names, number_files);
 	simple_print_file(dir, names, number_files);
+
+	closedir(dp);
+	for(int i = 0; i < number_files; ++i)
+		free(names[i]);
+	free(names);
 
 	printf("\n");
 }
