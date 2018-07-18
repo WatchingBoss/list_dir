@@ -7,17 +7,9 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "include/list.h"
-
-/* START COLORS */
-#define AC_B_RED   "\x1b[91;1m"
-#define AC_B_GREEN "\x1b[92;1m"
-#define AC_B_BLUE  "\x1b[94;1m"
-#define AC_B_CYAN  "\x1b[96;1m"
-#define AC_WHITE   "\x1b[97;1m"
-#define AC_RESET   "\x1b[0m"
-/* END COLORS   */
 
 #define S_PATH 256
 #define OPTIONS "al::"
@@ -27,42 +19,72 @@ bool print_begin_with_dot = false;
 bool print_like_list = false;
 /* === END GLOBAL VARIABLE   === */
 
+int main(int argc, char *argv[])
+{
+	char option;
+
+	while( (option = getopt(argc, argv, OPTIONS)) > 0)
+	{
+		switch(option)
+		{
+			case 'a':
+				print_begin_with_dot = true;
+				break;
+			case 'l':
+				print_like_list = true;
+				break;
+			case '?':
+				break;
+		}
+	}
+
+	read_input(argc, argv);
+
+	return 0;
+}
+
+/* permissions  */
 void list_print_file(char *path, char *files[], size_t num)
 {
-//	char full_path[S_PATH];
+	char full_path[S_PATH];
+	int value = 0;
+	char perm[10] = {0};
+	char owner_user[80], owner_group[80];
 
-//	memset(full_path, 0, S_PATH);
-//	snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
-}
-
-size_t sum_length (char *files[], size_t num)
-{
-	size_t sum = 0;
 	for(int i = 0; i < num; ++i)
-		sum += strlen(files[i]);
+	{
+		memset(full_path, 0, S_PATH);
+		memset(perm, 0, sizeof perm);
+		memset(owner_user, 0, sizeof owner_user);
+		memset(owner_group, 0, sizeof owner_group);
 
-	return sum;
+		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
+		value = st_mode_value(full_path);
+		get_file_info(full_path, perm, &value);
+
+		for(int j = 0; j < 10; ++j)
+			printf("%c", perm[j]);
+		putchar(' ');
+
+		switch(value)
+		{
+			case IS_DIR:
+				printf(AC_B_BLUE"%s"AC_RESET, files[i]);
+				break;
+			case IS_EXE:
+				printf(AC_B_GREEN"%s"AC_RESET, files[i]);
+				break;
+			case IS_LNK:
+				printf(AC_B_CYAN"%s"AC_RESET, files[i]);
+				break;
+			case IS_PLAIN:
+				printf(AC_WHITE"%s"AC_RESET, files[i]);
+				break;
+		}
+
+		putchar('\n');
+	}
 }
-
-/*
- * bin books Desktop Documents Downloads examples.desktop extensions
- * Music Pictures Public snap Templates Videos
-
- * bin    Desktop    Downloads         extensions  Pictures  snap       Videos
- * books  Documetns  examples.desktop  Music       Public    Templates  
-
- * words = 13
- * width of window = 105
- * sum of length = 97 (without spaces)
-
- * 97 / 13 = 7
- * Words in line (colomns): 105 / (7 * 2) = 7
- * Lines: 13 / 7 + 1 = 2
-
- * number of words
- * width of window
- * sum length of all strings
- */
 
 void check_line_filling(char *files[], size_t num, sTable *table, int width[])
 {
@@ -119,7 +141,7 @@ void simple_print_file(char *path, char *files[], size_t num)
 	table.lines = num / table.cols;
 
 	char full_path[S_PATH];
-	int value;
+	int value = 0;
 
 	int width[table.cols + 1];
 	memset(width, 0, sizeof width);
@@ -159,32 +181,69 @@ void simple_print_file(char *path, char *files[], size_t num)
 		}
 		putchar('\n');
 	}
-/*
-	for(int i = 0; i < num; ++i)
+}
+
+void directory_stream(char *dir)
+{
+	DIR *dp;
+	struct dirent *dsp;
+	char **names = NULL;
+	size_t number_files = 0;
+
+	if(!(dp = opendir(dir)))
+		sys_error("opendir error");
+
+	while( (dsp = readdir(dp)) != NULL)
 	{
-		memset(full_path, 0, S_PATH);
-		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
-		value = st_mode_value(full_path);
-
-		switch(value)
+		if(dsp->d_name[0] == '.')
+			if(print_begin_with_dot)
+			{
+				names = xrealloc(names, sizeof *names * (number_files + 1) );
+				names[number_files] = xrealloc(names[number_files],
+											   sizeof **names * (strlen(dsp->d_name) + 1));
+				strcpy(names[number_files++], dsp->d_name);
+			}
+			else
+				continue;
+		else
 		{
-			case IS_DIR:
-				printf(AC_B_BLUE"%s"AC_RESET, files[i]);
-				break;
-			case IS_EXE:
-				printf(AC_B_GREEN"%s"AC_RESET, files[i]);
-				break;
-			case IS_LNK:
-				printf(AC_B_CYAN"%s"AC_RESET, files[i]);
-				break;
-			case IS_PLAIN:
-				printf(AC_WHITE"%s"AC_RESET, files[i]);
-				break;
+				names = xrealloc(names, sizeof *names * (number_files + 1) );
+				names[number_files] = xrealloc(names[number_files],
+											   sizeof **names * (strlen(dsp->d_name) + 1));
+				strcpy(names[number_files++], dsp->d_name);
 		}
-
-		printf("  ");
 	}
-*/
+
+	sort_alphabetically(names, number_files);
+
+	if(print_like_list)
+		list_print_file(dir, names, number_files);
+	else
+		simple_print_file(dir, names, number_files);
+
+	closedir(dp);
+	for(int i = 0; i < number_files; ++i)
+		free(names[i]);
+	free(names);
+}
+
+void read_input(int argc, char *argv[])
+{
+	if(argc == 1 || argv[argc - 1][0] == '-')
+	{
+		char path[S_PATH];
+		current_directory(path, S_PATH);
+		directory_stream(path);
+	}
+
+	for(int i = argc - 1; i > 0; --i)
+	{
+		if(argv[i][0] == '-')
+			break;
+		if(!existing_directory(argv[i]))
+			user_error("Nonexcistent directory %s", argv[i]);
+		directory_stream(argv[i]);
+	}
 }
 
 /* === START SORTING IN ALPHABETICAL ORDER === */
@@ -238,86 +297,4 @@ void sort_alphabetically(char *names[], size_t num)
 	}
 }
 /* === END SORTING IN ALPHABETICAL ORDER === */
-
-void directory_stream(char *dir)
-{
-	DIR *dp;
-	struct dirent *dsp;
-	char **names = NULL;
-	size_t number_files = 0;
-
-	if(!(dp = opendir(dir)))
-		sys_error("opendir error");
-
-	while( (dsp = readdir(dp)) != NULL)
-	{
-		if(dsp->d_name[0] == '.')
-			if(print_begin_with_dot)
-			{
-				names = xrealloc(names, sizeof *names * (number_files + 1) );
-				names[number_files] = xrealloc(names[number_files],
-											   sizeof **names * (strlen(dsp->d_name) + 1));
-				strcpy(names[number_files++], dsp->d_name);
-			}
-			else
-				continue;
-		else
-		{
-				names = xrealloc(names, sizeof *names * (number_files + 1) );
-				names[number_files] = xrealloc(names[number_files],
-											   sizeof **names * (strlen(dsp->d_name) + 1));
-				strcpy(names[number_files++], dsp->d_name);
-		}
-	}
-
-	sort_alphabetically(names, number_files);
-	simple_print_file(dir, names, number_files);
-
-	closedir(dp);
-	for(int i = 0; i < number_files; ++i)
-		free(names[i]);
-	free(names);
-}
-
-void read_input(int argc, char *argv[])
-{
-	if(argc == 1 || argv[argc - 1][0] == '-')
-	{
-		char path[S_PATH];
-		current_directory(path, S_PATH);
-		directory_stream(path);
-	}
-
-	for(int i = argc - 1; i > 0; --i)
-	{
-		if(argv[i][0] == '-')
-			break;
-		if(!existing_directory(argv[i]))
-			user_error("Nonexcistent directory %s", argv[i]);
-		directory_stream(argv[i]);
-	}
-}
-
-int main(int argc, char *argv[])
-{
-	char option;
-
-	while( (option = getopt(argc, argv, OPTIONS)) > 0)
-	{
-		switch(option)
-		{
-			case 'a':
-				print_begin_with_dot = true;
-				break;
-			case 'l':
-				break;
-			case '?':
-				break;
-		}
-	}
-
-	read_input(argc, argv);
-
-	return 0;
-}
 

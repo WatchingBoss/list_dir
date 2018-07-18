@@ -18,7 +18,10 @@ extern int existing_directory(char *);
 extern void *xrealloc(void *, size_t);
 
 extern int get_terminal_width();
+extern size_t sum_length (char *[], size_t);
 
 extern int st_mode_value(char *);
+extern void get_file_info(char *, char [], int *);
+
 
 #endif
