@@ -1,16 +1,7 @@
 /*
  * Small help functions
  */
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/ioctl.h>
-#include "include/common.h"
+#include "include/inc.h"
 
 int get_terminal_width()
 {
@@ -62,72 +53,78 @@ int st_mode_value(char *file)
 		return IS_PLAIN;
 }
 
-void get_file_info(char *file, char perm[], int *value)
+void get_file_info(char *file, sIFLPF *info)
 {
 	struct stat sb;
 
 	if(lstat(file, &sb))
 		sys_error("lstat error");
 
+	memset(info->date, 0, 30);
+	strftime(info->date, 30, "%b %d %I:%M", localtime(&(sb.st_mtime)));
+
+	info->owner_user = getpwuid(sb.st_uid);
+	info->owner_group = getgrgid(sb.st_gid);
+
 	if(S_ISLNK(sb.st_mode))
 	{
-		*value = IS_LNK;
-		perm[0] = 'l';
+		info->value = IS_LNK;
+		info->perm[0] = 'l';
 	}
 	else if(S_ISDIR(sb.st_mode))
 	{
-		*value = IS_DIR;
-		perm[0] = 'd';
+		info->value = IS_DIR;
+		info->perm[0] = 'd';
 	}
 	else if(sb.st_mode & S_IXUSR)
 	{
-		*value = IS_EXE;
-		perm[0] = '-';
+		info->value = IS_EXE;
+		info->perm[0] = '-';
 	}
 	else
 	{
-		*value = IS_PLAIN;
-		perm[0] = '-';
+		info->value = IS_PLAIN;
+		info->perm[0] = '-';
 	}
 
 	if(sb.st_mode & S_IRUSR)
-		perm[1] = 'r';
+		info->perm[1] = 'r';
 	else
-		perm[1] = '-';
+		info->perm[1] = '-';
 	if(sb.st_mode & S_IWUSR)
-		perm[2] = 'w';
+		info->perm[2] = 'w';
 	else
-		perm[2] = '-';
+		info->perm[2] = '-';
 	if(sb.st_mode & S_IXUSR)
-		perm[3] = 'x';
+		info->perm[3] = 'x';
 	else
-		perm[3] = '-';
+		info->perm[3] = '-';
 
 	if(sb.st_mode & S_IRGRP)
-		perm[4] = 'r';
+		info->perm[4] = 'r';
 	else
-		perm[4] = '-';
+		info->perm[4] = '-';
 	if(sb.st_mode & S_IWGRP)
-		perm[5] = 'w';
+		info->perm[5] = 'w';
 	else
-		perm[5] = '-';
+		info->perm[5] = '-';
 	if(sb.st_mode & S_IXGRP)
-		perm[6] = 'x';
+		info->perm[6] = 'x';
 	else
-		perm[6] = '-';
+		info->perm[6] = '-';
 
 	if(sb.st_mode & S_IROTH)
-		perm[7] = 'r';
+		info->perm[7] = 'r';
 	else
-		perm[7] = '-';
+		info->perm[7] = '-';
 	if(sb.st_mode & S_IWOTH)
-		perm[8] = 'w';
+		info->perm[8] = 'w';
 	else
-		perm[8] = '-';
+		info->perm[8] = '-';
 	if(sb.st_mode & S_IXOTH)
-		perm[9] = 'x';
+		info->perm[9] = 'x';
 	else
-		perm[9] = '-';
+		info->perm[9] = '-';
 }
 
 void *xrealloc(void *ptr, size_t bytes)

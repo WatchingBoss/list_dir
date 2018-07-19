@@ -1,15 +1,7 @@
 /*
  * List directory linux terminal utility
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <sys/stat.h>
-
-#include "include/list.h"
+#include "include/inc.h"
 
 #define S_PATH 256
 #define OPTIONS "al::"
@@ -43,30 +35,136 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-/* permissions  */
-void list_print_file(char *path, char *files[], size_t num)
+size_t number_of_files_in_dirs(char *d)
 {
+	DIR *dir;
+	struct dirent *dp;
+	size_t num_of_files = 0;
+	if( !(dir = opendir(d)) )
+		return 1;
+
+	while( (dp = readdir(dir)) != NULL)
+		if( strcmp(dp->d_name, ".") && strcmp(dp->d_name, ".."))
+			++num_of_files;
+	
+	return num_of_files;
+}
+
+#define NUM_WIDTH 20
+void find_width_for_num_of_files(char *path, char *files[], size_t num,
+								 char number_of_files[][NUM_WIDTH])
+{
+	size_t num_of_files[num];
 	char full_path[S_PATH];
-	int value = 0;
-	char perm[10] = {0};
-	char owner_user[80], owner_group[80];
 
 	for(int i = 0; i < num; ++i)
 	{
 		memset(full_path, 0, S_PATH);
-		memset(perm, 0, sizeof perm);
-		memset(owner_user, 0, sizeof owner_user);
-		memset(owner_group, 0, sizeof owner_group);
+		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
+
+		num_of_files[i] = number_of_files_in_dirs(full_path);
+	}
+	
+	size_t width[num], max_width = 0;
+	for(int i = 0; i < num; ++i)
+	{
+		int w = 1;
+		for(int j = num_of_files[i]; j > 10; j /= 10)
+			++w;
+		if(w > max_width)
+			max_width = w;
+
+		width[i] = w;
+	}
+
+	for(int i = 0; i < num; ++i)
+	{
+		int j = 0;
+		char blanks[NUM_WIDTH];
+		memset(blanks, 0, sizeof blanks);
+		for(int b = max_width - width[i]; b != 0; --b)
+			blanks[j++] = ' ';
+		snprintf(number_of_files[i], NUM_WIDTH, "%s%ld", blanks, num_of_files[i]);
+	}
+}
+
+size_t size_of_file(char *path)
+{
+	struct stat sb;
+	size_t size = 0;
+	if(stat(path, &sb))
+		sys_error("fstat in size_of_file error");
+
+	size = sb.st_size;
+	return size;
+}
+
+void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_WIDTH])
+{
+	size_t sizes[num];
+	char full_path[S_PATH];
+
+	for(int i = 0; i < num; ++i)
+	{
+		memset(full_path, 0, S_PATH);
+		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
+
+		sizes[i] = size_of_file(full_path);
+	}
+	
+	size_t width[num], max_width = 0;
+	for(int i = 0; i < num; ++i)
+	{
+		int w = 1;
+		for(int j = sizes[i]; j > 10; j /= 10)
+			++w;
+		if(w > max_width)
+			max_width = w;
+
+		width[i] = w;
+	}
+
+	for(int i = 0; i < num; ++i)
+	{
+		int j = 0;
+		char blanks[NUM_WIDTH];
+		memset(blanks, 0, sizeof blanks);
+		for(int b = max_width - width[i]; b != 0; --b)
+			blanks[j++] = ' ';
+		snprintf(files_size[i], NUM_WIDTH, "%s%ld", blanks, sizes[i]);
+	}
+}
+
+void list_print_file(char *path, char *files[], size_t num)
+{
+	char full_path[S_PATH];
+	sIFLPF info;
+	char num_of_files[num][NUM_WIDTH];
+	char files_size[num][NUM_WIDTH];
+
+	memset(num_of_files, 0, sizeof num_of_files);
+	find_width_for_num_of_files(path, files, num, num_of_files);
+
+	memset(files_size, 0, sizeof files_size);
+	size_of_files(path, files, num, files_size);
+
+	for(int i = 0; i < num; ++i)
+	{
+		memset(full_path, 0, S_PATH);
+		memset(info.perm, 0, sizeof info.perm);
 
 		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
-		value = st_mode_value(full_path);
-		get_file_info(full_path, perm, &value);
+		get_file_info(full_path, &info);
 
 		for(int j = 0; j < 10; ++j)
-			printf("%c", perm[j]);
-		putchar(' ');
+			printf("%c", info.perm[j]);
 
-		switch(value)
+		printf(" %s ", num_of_files[i]);
+		printf("%s %s", info.owner_user->pw_name, info.owner_group->gr_name);
+		printf(" %s ", files_size[i]);
+		printf("%s ", info.date);
+
+		switch(info.value)
 		{
 			case IS_DIR:
 				printf(AC_B_BLUE"%s"AC_RESET, files[i]);

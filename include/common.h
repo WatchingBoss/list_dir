@@ -9,6 +9,15 @@ enum eST_MODE_VALUE
 	IS_PLAIN,
 };
 
+typedef struct sIFLPF
+{
+	int value;
+	char perm[10];
+	struct passwd *owner_user;
+	struct group *owner_group;
+	char date[30];
+} sIFLPF;
+
 extern void user_error(char *e, ...);
 extern void sys_error(char *e);
 
@@ -21,7 +30,7 @@ extern int get_terminal_width();
 extern size_t sum_length (char *[], size_t);
 
 extern int st_mode_value(char *);
-extern void get_file_info(char *, char [], int *);
+extern void get_file_info(char *, sIFLPF *);
 
 
 #endif
