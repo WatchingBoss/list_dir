@@ -35,24 +35,8 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-size_t number_of_files_in_dirs(char *d)
-{
-	DIR *dir;
-	struct dirent *dp;
-	size_t num_of_files = 0;
-	if( !(dir = opendir(d)) )
-		return 1;
-
-	while( (dp = readdir(dir)) != NULL)
-		if( strcmp(dp->d_name, ".") && strcmp(dp->d_name, ".."))
-			++num_of_files;
-	
-	return num_of_files;
-}
-
-#define NUM_WIDTH 20
-void find_width_for_num_of_files(char *path, char *files[], size_t num,
-								 char number_of_files[][NUM_WIDTH])
+void find_num_of_files(char *path, char *files[], size_t num,
+					   char number_of_files[][NUM_WIDTH])
 {
 	size_t num_of_files[num];
 	char full_path[S_PATH];
@@ -69,7 +53,7 @@ void find_width_for_num_of_files(char *path, char *files[], size_t num,
 	for(int i = 0; i < num; ++i)
 	{
 		int w = 1;
-		for(int j = num_of_files[i]; j > 10; j /= 10)
+		for(int j = num_of_files[i]; j >= 10; j /= 10)
 			++w;
 		if(w > max_width)
 			max_width = w;
@@ -86,17 +70,6 @@ void find_width_for_num_of_files(char *path, char *files[], size_t num,
 			blanks[j++] = ' ';
 		snprintf(number_of_files[i], NUM_WIDTH, "%s%ld", blanks, num_of_files[i]);
 	}
-}
-
-size_t size_of_file(char *path)
-{
-	struct stat sb;
-	size_t size = 0;
-	if(stat(path, &sb))
-		sys_error("fstat in size_of_file error");
-
-	size = sb.st_size;
-	return size;
 }
 
 void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_WIDTH])
@@ -116,7 +89,7 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 	for(int i = 0; i < num; ++i)
 	{
 		int w = 1;
-		for(int j = sizes[i]; j > 10; j /= 10)
+		for(int j = sizes[i]; j >= 10; j /= 10)
 			++w;
 		if(w > max_width)
 			max_width = w;
@@ -143,7 +116,7 @@ void list_print_file(char *path, char *files[], size_t num)
 	char files_size[num][NUM_WIDTH];
 
 	memset(num_of_files, 0, sizeof num_of_files);
-	find_width_for_num_of_files(path, files, num, num_of_files);
+	find_num_of_files(path, files, num, num_of_files);
 
 	memset(files_size, 0, sizeof files_size);
 	size_of_files(path, files, num, files_size);
@@ -285,7 +258,7 @@ void directory_stream(char *dir)
 {
 	DIR *dp;
 	struct dirent *dsp;
-	char **names = NULL;
+	char **names = malloc(sizeof(char *)), **temp = NULL, *temp_p = NULL;
 	size_t number_files = 0;
 
 	if(!(dp = opendir(dir)))
@@ -293,21 +266,20 @@ void directory_stream(char *dir)
 
 	while( (dsp = readdir(dp)) != NULL)
 	{
-		if(dsp->d_name[0] == '.')
-			if(print_begin_with_dot)
-			{
-				names = xrealloc(names, sizeof *names * (number_files + 1) );
-				names[number_files] = xrealloc(names[number_files],
-											   sizeof **names * (strlen(dsp->d_name) + 1));
-				strcpy(names[number_files++], dsp->d_name);
-			}
-			else
+		if(dsp->d_name[0] == '.' && !print_begin_with_dot)
 				continue;
 		else
 		{
-				names = xrealloc(names, sizeof *names * (number_files + 1) );
-				names[number_files] = xrealloc(names[number_files],
-											   sizeof **names * (strlen(dsp->d_name) + 1));
+				temp = xrealloc(names, sizeof *names * (number_files + 1) );
+				if(temp)
+					names = temp;
+				else
+					sys_error("xrealloc **names error");
+				temp_p = xmalloc(sizeof **names * (strlen(dsp->d_name) + 1));
+				if(temp)
+					names[number_files] = temp_p;
+				else
+					sys_error("xrealloc *names error");
 				strcpy(names[number_files++], dsp->d_name);
 		}
 	}

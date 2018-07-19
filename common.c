@@ -53,6 +53,33 @@ int st_mode_value(char *file)
 		return IS_PLAIN;
 }
 
+size_t number_of_files_in_dirs(char *d)
+{
+	DIR *dir;
+	struct dirent *dp;
+	size_t num_of_files = 0;
+	if( !(dir = opendir(d)) )
+		return 1;
+
+	while( (dp = readdir(dir)) != NULL)
+		if( strcmp(dp->d_name, ".") && strcmp(dp->d_name, ".."))
+			++num_of_files;
+	
+	return num_of_files;
+}
+
+size_t size_of_file(char *path)
+{
+	struct stat sb;
+	size_t size = 0;
+	if(stat(path, &sb))
+		sys_error("fstat in size_of_file error");
+
+	size = sb.st_size;
+	return size;
+}
+
+
 void get_file_info(char *file, sIFLPF *info)
 {
 	struct stat sb;
@@ -127,11 +154,19 @@ void get_file_info(char *file, sIFLPF *info)
 		info->perm[9] = '-';
 }
 
-void *xrealloc(void *ptr, size_t bytes)
+void * xrealloc(void *ptr, size_t bytes)
 {
 	ptr = realloc(ptr, bytes);
 	if(!ptr)
 		sys_error("realloc error");
+	return ptr;
+}
+
+void * xmalloc(size_t bytes)
+{
+	void *ptr = malloc(bytes);
+	if(!ptr)
+		sys_error("malloc error");
 	return ptr;
 }
 

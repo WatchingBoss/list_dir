@@ -12,6 +12,8 @@
 #define AC_RESET   "\x1b[0m"
 /* END COLORS   */
 
+#define NUM_WIDTH 20
+
 typedef enum{false, true} bool;
 
 typedef struct sTable
@@ -21,14 +23,17 @@ typedef struct sTable
 
 extern void check_line_filling(char *[], size_t, sTable *, int []);
 extern void greatest_len_in_col(char *[], size_t, sTable *, int []);
-
-extern void list_print_file(char *, char *[], size_t);
 extern void simple_print_file(char *, char *[], size_t);
+
+extern void find_num_of_files(char *, char *[], size_t, char[][NUM_WIDTH]);
+extern void size_of_files(char *, char *[], size_t, char[][NUM_WIDTH]);
+extern void list_print_file(char *, char *[], size_t);
 
 extern int compare(char *, char *);
 extern void sort_alphabetically(char *[], size_t);
 
 extern void directory_stream(char *);
 extern void read_input(int, char *[]);
+
 
 #endif
