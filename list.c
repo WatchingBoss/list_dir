@@ -4,11 +4,14 @@
 #include "include/inc.h"
 
 #define S_PATH 256
-#define OPTIONS "al::"
+#define OPTIONS "alhkm::"
 
 /* === START GLOBAL VARIABLE === */
 bool print_begin_with_dot = false;
 bool print_like_list = false;
+bool print_size_human = false;
+bool print_size_kb = false;
+bool print_size_mb = false;
 /* === END GLOBAL VARIABLE   === */
 
 int main(int argc, char *argv[])
@@ -24,6 +27,15 @@ int main(int argc, char *argv[])
 				break;
 			case 'l':
 				print_like_list = true;
+				break;
+			case 'h':
+				print_size_human = true;
+				break;
+			case 'k':
+				print_size_kb = true;
+				break;
+			case 'm':
+				print_size_mb = true;
 				break;
 			case '?':
 				break;
@@ -74,7 +86,7 @@ void find_num_of_files(char *path, char *files[], size_t num,
 
 void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_WIDTH])
 {
-	size_t sizes[num];
+	float sizes[num];
 	char full_path[S_PATH];
 
 	for(int i = 0; i < num; ++i)
@@ -84,7 +96,29 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 
 		sizes[i] = size_of_file(full_path);
 	}
-	
+
+	char human_size[num];
+	if(print_size_human)
+	{
+		memset(human_size, 0, sizeof human_size);
+		for(int i = 0; i < num; ++i)
+			if(sizes[i] > 1000000000)
+			{
+				sizes[i] /= 1000000000;
+				human_size[i] = 'g';
+			}
+			else if(sizes[i] > 1000000)
+			{
+				sizes[i] /= 1000000;
+				human_size[i] = 'm';
+			}
+			else if(sizes[i] > 1000)
+			{
+				sizes[i] /= 1000;
+				human_size[i] = 'k';
+			}
+	}
+
 	size_t width[num], max_width = 0;
 	for(int i = 0; i < num; ++i)
 	{
@@ -104,8 +138,15 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 		memset(blanks, 0, sizeof blanks);
 		for(int b = max_width - width[i]; b != 0; --b)
 			blanks[j++] = ' ';
-		snprintf(files_size[i], NUM_WIDTH, "%s%ld", blanks, sizes[i]);
+		if(!print_size_human && !print_size_kb && !print_size_mb)
+			snprintf(files_size[i], NUM_WIDTH, "%s%.0f", blanks, sizes[i]);
+		else if(print_size_human)
+			snprintf(files_size[i], NUM_WIDTH, "%s%.1f%c", blanks, sizes[i],
+					 human_size[i] == 'k' ? 'K' :
+					 human_size[i] == 'm' ? 'M' :
+					 human_size[i] == 'g' ? 'G' : 'B');
 	}
+
 }
 
 void list_print_file(char *path, char *files[], size_t num)

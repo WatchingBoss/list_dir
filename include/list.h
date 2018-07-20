@@ -14,8 +14,6 @@
 
 #define NUM_WIDTH 20
 
-typedef enum{false, true} bool;
-
 typedef struct sTable
 {
 	size_t sum_len, win_width, cols, lines;
