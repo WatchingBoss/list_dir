@@ -4,7 +4,7 @@
 #include "include/inc.h"
 
 #define S_PATH 256
-#define OPTIONS "alhkm::"
+#define OPTIONS "alhkmg::"
 
 /* === START GLOBAL VARIABLE === */
 bool print_begin_with_dot = false;
@@ -118,6 +118,16 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 				human_size[i] = 'k';
 			}
 	}
+	else if(print_size_kb)
+	{
+		for(int i = 0; i < num; ++i)
+			sizes[i] /= 1000;
+	}
+	else if(print_size_mb)
+	{
+		for(int i = 0; i < num; ++i)
+			sizes[i] /= 1000000;
+	}
 
 	size_t width[num], max_width = 0;
 	for(int i = 0; i < num; ++i)
@@ -145,6 +155,10 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 					 human_size[i] == 'k' ? 'K' :
 					 human_size[i] == 'm' ? 'M' :
 					 human_size[i] == 'g' ? 'G' : 'B');
+		else if(print_size_kb)
+			snprintf(files_size[i], NUM_WIDTH, "%s%.1f%c", blanks, sizes[i], 'K');
+		else if(print_size_mb)
+			snprintf(files_size[i], NUM_WIDTH, "%s%.1f%c", blanks, sizes[i], 'M');
 	}
 
 }
