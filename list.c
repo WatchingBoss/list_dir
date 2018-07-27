@@ -53,7 +53,7 @@ void find_num_of_files(char *path, char *files[], size_t num,
 	size_t num_of_files[num];
 	char full_path[S_PATH];
 
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
 		memset(full_path, 0, S_PATH);
 		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
@@ -62,9 +62,9 @@ void find_num_of_files(char *path, char *files[], size_t num,
 	}
 	
 	size_t width[num], max_width = 0;
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
-		int w = 1;
+		size_t w = 1;
 		for(int j = num_of_files[i]; j >= 10; j /= 10)
 			++w;
 		if(w > max_width)
@@ -73,12 +73,11 @@ void find_num_of_files(char *path, char *files[], size_t num,
 		width[i] = w;
 	}
 
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
-		int j = 0;
 		char blanks[NUM_WIDTH];
 		memset(blanks, 0, sizeof blanks);
-		for(int b = max_width - width[i]; b != 0; --b)
+		for(int j = 0, b = max_width - width[i]; b != 0; --b)
 			blanks[j++] = ' ';
 		snprintf(number_of_files[i], NUM_WIDTH, "%s%ld", blanks, num_of_files[i]);
 	}
@@ -89,7 +88,7 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 	float sizes[num];
 	char full_path[S_PATH];
 
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
 		memset(full_path, 0, S_PATH);
 		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
@@ -101,7 +100,7 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 	if(print_size_human)
 	{
 		memset(human_size, 0, sizeof human_size);
-		for(int i = 0; i < num; ++i)
+		for(size_t i = 0; i < num; ++i)
 			if(sizes[i] > 1000000000)
 			{
 				sizes[i] /= 1000000000;
@@ -120,19 +119,19 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 	}
 	else if(print_size_kb)
 	{
-		for(int i = 0; i < num; ++i)
+		for(size_t i = 0; i < num; ++i)
 			sizes[i] /= 1000;
 	}
 	else if(print_size_mb)
 	{
-		for(int i = 0; i < num; ++i)
+		for(size_t i = 0; i < num; ++i)
 			sizes[i] /= 1000000;
 	}
 
 	size_t width[num], max_width = 0;
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
-		int w = 1;
+		size_t w = 1;
 		for(int j = sizes[i]; j >= 10; j /= 10)
 			++w;
 		if(w > max_width)
@@ -141,7 +140,7 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 		width[i] = w;
 	}
 
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
 		int j = 0;
 		char blanks[NUM_WIDTH];
@@ -160,7 +159,65 @@ void size_of_files(char *path, char *files[], size_t num, char files_size[][NUM_
 		else if(print_size_mb)
 			snprintf(files_size[i], NUM_WIDTH, "%s%.1f%c", blanks, sizes[i], 'M');
 	}
+}
 
+void user_group_names(char *path, char *files[], size_t num,
+					  char owner_u[][NUM_WIDTH], char owner_g[][NUM_WIDTH])
+{
+	char full_path[S_PATH];
+	char o_user[num][NUM_WIDTH];
+	char o_group[num][NUM_WIDTH];
+	memset(o_user, 0, sizeof o_user);
+	memset(o_group, 0, sizeof o_group);
+	struct passwd *owner_user;
+	struct group *owner_group;
+
+	for(size_t i = 0; i < num; ++i)
+	{
+		memset(full_path, 0, S_PATH);
+		snprintf(full_path, S_PATH, "%s/%s", path, files[i]);
+
+		struct stat sb;
+
+		if(lstat(full_path, &sb))
+			sys_error("lstat in user_group_names() error");
+
+		owner_user = getpwuid(sb.st_uid);
+		owner_group = getgrgid(sb.st_gid);
+
+		strncpy(o_user[i], owner_user->pw_name, NUM_WIDTH);
+		strncpy(o_group[i], owner_group->gr_name, NUM_WIDTH);
+	}
+	
+	size_t width_user[num], width_group[num], max_width_user = 0, max_width_group = 0;
+	for(size_t i = 0; i < num; ++i)
+	{
+		size_t user = 1, group = 1;
+		for(size_t j = strlen(o_user[i]); j >= 1; --j)
+			++user;
+		for(size_t j = strlen(o_group[i]); j >= 1; --j)
+			++group;
+		if(user > max_width_user)
+			max_width_user = user;
+		if(group > max_width_group)
+			max_width_group = group;
+
+		width_user[i] = user;
+		width_group[i] = group;
+	}
+
+	for(size_t i = 0; i < num; ++i)
+	{
+		char blanks_user[NUM_WIDTH], blanks_group[NUM_WIDTH];
+		memset(blanks_user, 0, sizeof blanks_user);
+		memset(blanks_group, 0, sizeof blanks_group);
+		for(int j = 0, b = max_width_user - width_user[i]; b != 0; --b)
+			blanks_user[j++] = ' ';
+		for(int j = 0, b = max_width_group - width_group[i]; b != 0; --b)
+			blanks_group[j++] = ' ';
+		snprintf(owner_u[i], NUM_WIDTH, "%s%s", blanks_user, o_user[i]);
+		snprintf(owner_g[i], NUM_WIDTH, "%s%s", blanks_group, o_group[i]);
+	}
 }
 
 void list_print_file(char *path, char *files[], size_t num)
@@ -169,6 +226,12 @@ void list_print_file(char *path, char *files[], size_t num)
 	sIFLPF info;
 	char num_of_files[num][NUM_WIDTH];
 	char files_size[num][NUM_WIDTH];
+	char owner_user[num][NUM_WIDTH];
+	char owner_group[num][NUM_WIDTH];
+
+	memset(owner_user, 0, sizeof owner_user);
+	memset(owner_group, 0, sizeof owner_group);
+	user_group_names(path, files, num, owner_user, owner_group);
 
 	memset(num_of_files, 0, sizeof num_of_files);
 	find_num_of_files(path, files, num, num_of_files);
@@ -176,7 +239,7 @@ void list_print_file(char *path, char *files[], size_t num)
 	memset(files_size, 0, sizeof files_size);
 	size_of_files(path, files, num, files_size);
 
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 	{
 		memset(full_path, 0, S_PATH);
 		memset(info.perm, 0, sizeof info.perm);
@@ -188,7 +251,7 @@ void list_print_file(char *path, char *files[], size_t num)
 			printf("%c", info.perm[j]);
 
 		printf(" %s ", num_of_files[i]);
-		printf("%s %s", info.owner_user->pw_name, info.owner_group->gr_name);
+		printf("%s %s", owner_user[i], owner_group[i]);
 		printf(" %s ", files_size[i]);
 		printf("%s ", info.date);
 
@@ -201,8 +264,31 @@ void list_print_file(char *path, char *files[], size_t num)
 				printf(AC_B_GREEN"%s"AC_RESET, files[i]);
 				break;
 			case IS_LNK:
+			{
 				printf(AC_B_CYAN"%s"AC_RESET, files[i]);
-				break;
+				char actual_path[S_PATH];
+				memset(actual_path, 0, sizeof actual_path);
+				char *ptr = realpath(full_path, actual_path);
+				if(ptr == NULL)
+					printf(" -> Unknown path");
+				else
+				{
+					size_t actual_file_mode = st_mode_value(actual_path);
+
+					switch(actual_file_mode)
+					{
+						case IS_DIR:
+							printf(" -> "AC_B_BLUE"%s"AC_RESET, actual_path);
+							break;
+						case IS_EXE:
+							printf(" -> "AC_B_GREEN"%s"AC_RESET, actual_path);
+							break;
+						case IS_PLAIN:
+							printf(" -> "AC_WHITE"%s"AC_RESET, actual_path);
+							break;
+					}
+				}
+			} break;
 			case IS_PLAIN:
 				printf(AC_WHITE"%s"AC_RESET, files[i]);
 				break;
@@ -214,17 +300,17 @@ void list_print_file(char *path, char *files[], size_t num)
 
 void check_line_filling(char *files[], size_t num, sTable *table, int width[])
 {
-	int len[table->lines];
+	size_t len[table->lines];
 	memset(len, 0, sizeof len);
 
-	for(int line = 0; line < table->lines; ++line)
-		for(int w = 0, l = 0; l < table->cols; w += table->lines, ++l)
+	for(size_t line = 0; line < table->lines; ++line)
+		for(size_t w = 0, l = 0; l < table->cols; w += table->lines, ++l)
 		{
 			if(w >= num)
 				break;
 			len[line] += (strlen(files[w]) + 2);
 		}
-	for(int i = 0; i < table->lines; ++i)
+	for(size_t i = 0; i < table->lines; ++i)
 		if(table->win_width < len[i])
 		{
 			table->cols -= 1;
@@ -241,15 +327,15 @@ void check_line_filling(char *files[], size_t num, sTable *table, int width[])
 
 void greatest_len_in_col(char *files[], size_t num, sTable *table, int width[])
 {
-	for(int line = 0; line < table->lines; ++line)
-		for(int c = 0, w = line; c < table->cols && w < num; ++c, w += table->lines)
+	for(size_t line = 0; line < table->lines; ++line)
+		for(size_t c = 0, w = line; c < table->cols && w < num; ++c, w += table->lines)
 		{
 			int temp_len = strlen(files[w]) + 2;
 			if(width[c] < temp_len)
 				width[c] = temp_len;
 		}
 	size_t sum_max = 0;
-	for(int i = 0; i < table->cols; ++i)
+	for(size_t i = 0; i < table->cols; ++i)
 		sum_max += width[i];
 	if(sum_max > table->win_width)
 	{
@@ -274,9 +360,9 @@ void simple_print_file(char *path, char *files[], size_t num)
 
 	check_line_filling(files, num, &table, width);
 
-	for(int line = 0; line < table.lines; ++line)
+	for(size_t line = 0; line < table.lines; ++line)
 	{
-		for(int j = line, c = 0; c < table.cols && j < num; j += table.lines, ++c)
+		for(size_t j = line, c = 0; c < table.cols && j < num; j += table.lines, ++c)
 		{
 			memset(full_path, 0, S_PATH);
 			snprintf(full_path, S_PATH, "%s/%s", path, files[j]);
@@ -299,10 +385,10 @@ void simple_print_file(char *path, char *files[], size_t num)
 			}
 			int temp_len = strlen(files[j]);
 			if(temp_len < width[c])
-				for(int i = width[c] - temp_len; i != 0; --i)
+				for(size_t i = width[c] - temp_len; i != 0; --i)
 					putchar(' ');
 			else
-				for(int i = 0; i < 2; ++i)
+				for(size_t i = 0; i < 2; ++i)
 					putchar(' ');
 		}
 		putchar('\n');
@@ -347,7 +433,7 @@ void directory_stream(char *dir)
 		simple_print_file(dir, names, number_files);
 
 	closedir(dp);
-	for(int i = 0; i < number_files; ++i)
+	for(size_t i = 0; i < number_files; ++i)
 		free(names[i]);
 	free(names);
 }
@@ -361,7 +447,7 @@ void read_input(int argc, char *argv[])
 		directory_stream(path);
 	}
 
-	for(int i = argc - 1; i > 0; --i)
+	for(size_t i = argc - 1; i > 0; --i)
 	{
 		if(argv[i][0] == '-')
 			break;
@@ -377,9 +463,9 @@ int compare(char *c, char *m)
 	char current[80] = {0}, min[80] = {0};
 	if(!print_begin_with_dot)
 	{
-		for(int i = 0; c[i] != '\0'; ++i)
+		for(size_t i = 0; c[i] != '\0'; ++i)
 			current[i] = tolower(c[i]);
-		for(int i = 0; m[i] != '\0'; ++i)
+		for(size_t i = 0; m[i] != '\0'; ++i)
 			min[i] = tolower(m[i]);
 	}
 	else

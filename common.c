@@ -13,7 +13,7 @@ int get_terminal_width()
 size_t sum_length (char *files[], size_t num)
 {
 	size_t sum = 0;
-	for(int i = 0; i < num; ++i)
+	for(size_t i = 0; i < num; ++i)
 		sum += strlen(files[i]);
 
 	return sum;
@@ -41,7 +41,9 @@ int st_mode_value(char *file)
 	struct stat sb;
 
 	if(lstat(file, &sb))          // not stat because currect S_ISLNK(m) usage
-		sys_error("lstat error");
+	{
+		sys_error("lstat in st_mode_value() error");
+	}
 
 	if(S_ISLNK(sb.st_mode))
 		return IS_LNK;
@@ -72,26 +74,23 @@ size_t size_of_file(char *path)
 {
 	struct stat sb;
 	size_t size = 0;
-	if(stat(path, &sb))
-		sys_error("fstat in size_of_file error");
+	if(lstat(path, &sb))
+		sys_error("lstat in size_of_file() error");
 
 	size = sb.st_size;
 	return size;
 }
 
 
-void get_file_info(char *file, sIFLPF *info)
+void get_file_info(const char *file, sIFLPF *info)
 {
 	struct stat sb;
 
 	if(lstat(file, &sb))
-		sys_error("lstat error");
+		sys_error("lstat in get_file_info() error");
 
 	memset(info->date, 0, 30);
 	strftime(info->date, 30, "%b %d %I:%M", localtime(&(sb.st_mtime)));
-
-	info->owner_user = getpwuid(sb.st_uid);
-	info->owner_group = getgrgid(sb.st_gid);
 
 	if(S_ISLNK(sb.st_mode))
 	{
