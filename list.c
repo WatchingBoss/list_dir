@@ -491,12 +491,12 @@ int compare(char *c, char *m)
 
 void sort_alphabetically(char *names[], size_t num)
 {
-	int min = 0;
-	for(int i = 0; i < num - 1; ++i)
+	size_t min = 0;
+	for(size_t i = 0; i < num - 1; ++i)
 	{
 		min = i;
 
-		for(int j = i + 1; j < num; ++j)
+		for(size_t j = i + 1; j < num; ++j)
 		{
 			if(compare(names[j], names[min]))
 				min = j;
